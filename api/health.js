@@ -1,4 +1,6 @@
-import targets from "../targets.json" assert { type: "json" };
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const targets = require("../targets.json");
 
 export default function handler(req, res) {
   const allTargets = { ...targets };

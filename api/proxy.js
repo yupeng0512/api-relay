@@ -21,7 +21,9 @@
  *   Example: RELAY_EXTRA_TARGETS={"foo":"https://api.foo.com"}
  */
 
-import targets from "../targets.json" assert { type: "json" };
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const targets = require("../targets.json");
 
 function getTargets() {
   const merged = { ...targets };
