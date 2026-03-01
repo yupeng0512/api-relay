@@ -1,8 +1,8 @@
 {
-  "name": "polymarket-relay",
-  "version": "1.0.0",
+  "name": "api-relay",
+  "version": "2.0.0",
   "private": true,
-  "description": "Vercel Serverless relay for Polymarket APIs (gamma, clob, data-api)",
+  "description": "Universal Vercel Serverless API relay — proxy any whitelisted upstream through vercel.app",
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod"

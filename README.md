@@ -1,67 +1,78 @@
-# Polymarket API Relay
+# API Relay
 
-Vercel Serverless 转发服务，让内网机器通过 `*.vercel.app` 访问 Polymarket API。
+通用 Vercel Serverless API 转发服务。让内网机器通过 `*.vercel.app` 访问任意被防火墙拦截的外部 API。
 
 ## 原理
 
 ```
-内网 Linux 服务器 → polymarket-relay.vercel.app → gamma-api.polymarket.com
-                    (防火墙放行 vercel.app)        (Vercel 出口无限制)
+内网服务器 → api-relay.vercel.app → 任意上游 API
+              (防火墙放行)           (Vercel 出口无限制)
 ```
 
-## 支持的 API
+## 添加新的上游服务
 
-| Target | 上游地址 | 说明 |
-|--------|---------|------|
-| `gamma` | gamma-api.polymarket.com | 市场列表、价格、条件等 |
-| `clob` | clob.polymarket.com | 订单簿、中间价 |
-| `data` | data-api.polymarket.com | 交易记录、用户数据 |
+编辑 `targets.json`，添加一行：
+
+```json
+{
+  "gamma":     "https://gamma-api.polymarket.com",
+  "coingecko": "https://api.coingecko.com/api/v3",
+  "binance":   "https://api.binance.com",
+  "your-api":  "https://api.your-service.com"
+}
+```
+
+推送到 GitHub → Vercel 自动部署 → 立即生效。
+
+如果不想重新部署，也可以通过 Vercel 环境变量 `RELAY_EXTRA_TARGETS` 动态添加：
+
+```
+RELAY_EXTRA_TARGETS={"newapi":"https://api.newservice.com"}
+```
 
 ## 用法
 
 ```bash
-# 健康检查
+# 健康检查（查看所有可用 target）
 curl https://your-relay.vercel.app/api/health
 
-# 获取市场列表
+# Polymarket 市场列表
 curl "https://your-relay.vercel.app/api/proxy?target=gamma&path=/markets&limit=5"
 
-# 查询中间价
-curl "https://your-relay.vercel.app/api/proxy?target=clob&path=/midpoint&token_id=xxx"
+# CoinGecko 比特币价格
+curl "https://your-relay.vercel.app/api/proxy?target=coingecko&path=/simple/price&ids=bitcoin&vs_currencies=usd"
 
-# 查询用户交易
-curl "https://your-relay.vercel.app/api/proxy?target=data&path=/trades&user=0x..."
+# Binance 行情
+curl "https://your-relay.vercel.app/api/proxy?target=binance&path=/api/v3/ticker/price&symbol=BTCUSDT"
 
 # 带 API Key 认证
-curl "https://your-relay.vercel.app/api/proxy?target=gamma&path=/markets&limit=5&key=your-key"
-# 或通过 Header
 curl -H "X-API-Key: your-key" "https://your-relay.vercel.app/api/proxy?target=gamma&path=/markets&limit=5"
 ```
 
 ## 部署
 
-### 1. 关联 GitHub 仓库
+### 1. 关联 GitHub
 
-Push 到 GitHub 后，在 [Vercel Dashboard](https://vercel.com/dashboard) 中 Import 该仓库即可自动部署。
+Push 到 GitHub 后，在 [Vercel Dashboard](https://vercel.com/dashboard) 中 Import 该仓库，自动部署。
 
-### 2. 配置环境变量（可选）
+### 2. 环境变量（Vercel Dashboard → Settings → Environment Variables）
 
-在 Vercel Dashboard → Settings → Environment Variables 中设置：
+| 变量 | 必需 | 说明 |
+|------|------|------|
+| `RELAY_API_KEY` | 否 | API 访问密钥（不设则开放访问） |
+| `RELAY_EXTRA_TARGETS` | 否 | 运行时追加 target（JSON 格式） |
 
-| 变量 | 说明 |
-|------|------|
-| `RELAY_API_KEY` | API 访问密钥（不设则开放访问） |
-
-### 3. 在 trading-system 中使用
+### 3. 在项目中使用
 
 ```bash
-# trading-system/.env
+# .env
 POLYMARKET_RELAY_URL=https://your-relay.vercel.app
 POLYMARKET_RELAY_KEY=your-secret-key
 ```
 
 ## 安全
 
+- 仅代理 `targets.json` 和 `RELAY_EXTRA_TARGETS` 中声明的上游，不支持任意 URL
 - `RELAY_API_KEY` 通过 Vercel 环境变量配置，不提交到代码仓库
-- 仅代理 Polymarket 官方 API，不支持任意 URL 转发
-- 生产环境建议开启 API Key 认证
+- 支持转发 `Authorization` header，适用于需要认证的上游 API
+- 支持 GET / POST / PUT / DELETE 全方法

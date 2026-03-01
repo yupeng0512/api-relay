@@ -1,0 +1,9 @@
+{
+  "__doc__": "Allowed upstream targets. Key = short alias, value = base URL. Add new entries to relay more services.",
+
+  "gamma":     "https://gamma-api.polymarket.com",
+  "clob":      "https://clob.polymarket.com",
+  "data":      "https://data-api.polymarket.com",
+  "coingecko": "https://api.coingecko.com/api/v3",
+  "binance":   "https://api.binance.com"
+}
