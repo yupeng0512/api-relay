@@ -21,12 +21,20 @@
  *   Example: RELAY_EXTRA_TARGETS={"foo":"https://api.foo.com"}
  */
 
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const targets = require("../targets.json");
+const fs = require("fs");
+const path = require("path");
+
+let _targets = null;
+function loadTargets() {
+  if (!_targets) {
+    const raw = fs.readFileSync(path.join(__dirname, "..", "targets.json"), "utf-8");
+    _targets = JSON.parse(raw);
+  }
+  return _targets;
+}
 
 function getTargets() {
-  const merged = { ...targets };
+  const merged = { ...loadTargets() };
   delete merged.__doc;
 
   const extra = process.env.RELAY_EXTRA_TARGETS;
@@ -40,7 +48,7 @@ function getTargets() {
   return merged;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization");
@@ -59,7 +67,7 @@ export default async function handler(req, res) {
   }
 
   const allTargets = getTargets();
-  const { target, path, key: _key, ...queryParams } = req.query;
+  const { target, path: apiPath, key: _key, ...queryParams } = req.query;
 
   if (!target || !allTargets[target]) {
     return res.status(400).json({
@@ -69,7 +77,7 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!path) {
+  if (!apiPath) {
     return res.status(400).json({
       error: "Missing 'path' parameter",
       usage: `GET /api/proxy?target=${target}&path=/endpoint`,
@@ -77,11 +85,10 @@ export default async function handler(req, res) {
   }
 
   const baseUrl = allTargets[target];
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const cleanPath = apiPath.startsWith("/") ? apiPath : `/${apiPath}`;
   const qs = new URLSearchParams(queryParams).toString();
   const upstreamUrl = `${baseUrl}${cleanPath}${qs ? `?${qs}` : ""}`;
 
-  // Forward select headers from the original request
   const forwardHeaders = { "User-Agent": "APIRelay/1.0" };
   if (req.headers["content-type"]) {
     forwardHeaders["Content-Type"] = req.headers["content-type"];
@@ -102,7 +109,6 @@ export default async function handler(req, res) {
     const upstreamRes = await fetch(upstreamUrl, fetchOpts);
     const contentType = upstreamRes.headers.get("content-type") || "";
 
-    // Forward upstream status code
     if (contentType.includes("application/json")) {
       const data = await upstreamRes.json();
       return res.status(upstreamRes.status).json(data);
@@ -119,4 +125,4 @@ export default async function handler(req, res) {
       detail: err.message,
     });
   }
-}
+};
