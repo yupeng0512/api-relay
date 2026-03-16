@@ -12,6 +12,9 @@ module.exports = function handler(req, res) {
   if (extra) {
     try { Object.assign(allTargets, JSON.parse(extra)); } catch {}
   }
+  if (process.env.SHADOW_SIDECAR_URL) {
+    allTargets.shadow_sidecar = process.env.SHADOW_SIDECAR_URL;
+  }
 
   res.status(200).json({
     status: "ok",

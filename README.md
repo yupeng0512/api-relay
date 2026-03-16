@@ -1,13 +1,19 @@
 # API Relay
 
-通用 Vercel Serverless API 转发服务。让内网机器通过 `*.vercel.app` 访问任意被防火墙拦截的外部 API。
+通用 Vercel Serverless API 转发服务。让内网机器通过 `*.vercel.app` 访问被防火墙拦截的外部 HTTP API，或访问外部常驻 sidecar 的 HTTP control plane。
 
 ## 原理
 
 ```
-内网服务器 → api-relay.vercel.app → 任意上游 API
-              (防火墙放行)           (Vercel 出口无限制)
+内网服务器 → api-relay.vercel.app → HTTP 上游 / truth sidecar
+              (防火墙放行)           (Vercel 出口放行)
 ```
+
+注意：
+
+- `api-relay` 只转发 HTTP。
+- 它不是 websocket carrier。
+- 对 `trading-system` 来说，Polymarket market websocket 应由外部 `truth sidecar` 常驻进程维护，relay 只负责转发 `health / events / reconcile` 这些 HTTP 接口。
 
 ## 添加新的上游服务
 
@@ -29,6 +35,21 @@
 ```
 RELAY_EXTRA_TARGETS={"newapi":"https://api.newservice.com"}
 ```
+
+Phase 10 起，`trading-system` 还支持通过环境变量直接注册 `shadow_sidecar`：
+
+```bash
+SHADOW_SIDECAR_URL=https://your-sidecar.example.com
+SHADOW_SIDECAR_TOKEN=your-sidecar-bearer-token
+```
+
+启用后，relay 会把：
+
+- `GET /api/proxy?target=shadow_sidecar&path=/v1/health`
+- `GET /api/proxy?target=shadow_sidecar&path=/v1/events`
+- `POST /api/proxy?target=shadow_sidecar&path=/v1/subscriptions/reconcile`
+
+透明转发到 sidecar，并自动注入 `Authorization: Bearer <SHADOW_SIDECAR_TOKEN>`。
 
 ## 用法
 
@@ -61,6 +82,8 @@ Push 到 GitHub 后，在 [Vercel Dashboard](https://vercel.com/dashboard) 中 I
 |------|------|------|
 | `RELAY_API_KEY` | 否 | API 访问密钥（不设则开放访问） |
 | `RELAY_EXTRA_TARGETS` | 否 | 运行时追加 target（JSON 格式） |
+| `SHADOW_SIDECAR_URL` | 否 | Phase 10 truth sidecar 的 HTTP 基地址 |
+| `SHADOW_SIDECAR_TOKEN` | 否 | relay 转发到 truth sidecar 时注入的 Bearer token |
 
 ### 3. 在项目中使用
 
@@ -68,6 +91,8 @@ Push 到 GitHub 后，在 [Vercel Dashboard](https://vercel.com/dashboard) 中 I
 # .env
 POLYMARKET_RELAY_URL=https://your-relay.vercel.app
 POLYMARKET_RELAY_KEY=your-secret-key
+TRUTH_SIDECAR_URL=https://your-sidecar.example.com
+TRUTH_SIDECAR_TOKEN=your-sidecar-bearer-token
 ```
 
 ## 安全

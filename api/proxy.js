@@ -45,6 +45,9 @@ function getTargets() {
       console.error("Failed to parse RELAY_EXTRA_TARGETS env var");
     }
   }
+  if (process.env.SHADOW_SIDECAR_URL) {
+    merged.shadow_sidecar = process.env.SHADOW_SIDECAR_URL;
+  }
   return merged;
 }
 
@@ -95,6 +98,9 @@ module.exports = async function handler(req, res) {
   }
   if (req.headers["authorization"]) {
     forwardHeaders["Authorization"] = req.headers["authorization"];
+  }
+  if (target === "shadow_sidecar" && process.env.SHADOW_SIDECAR_TOKEN) {
+    forwardHeaders["Authorization"] = `Bearer ${process.env.SHADOW_SIDECAR_TOKEN}`;
   }
 
   try {
